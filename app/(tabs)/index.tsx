@@ -317,7 +317,7 @@ export default function DiscoverTab() {
                   <View className="p-3 justify-between flex-1 pb-12">
                     <View>
                       <Text
-                        className="text-main font-black text-xs leading-4"
+                        className="text-main font-black text-xl leading-6"
                         numberOfLines={2}
                       >
                         {item.strMeal}
@@ -332,7 +332,7 @@ export default function DiscoverTab() {
                   <Pressable
                     onPress={() => handleSaveMeal(item)}
                     disabled={isDisabled}
-                    className={`absolute bottom-0 left-0 right-0 py-2.5 items-center justify-center ${
+                    className={`m-2 rounded-lg py-0.5 items-center justify-center shadow-black ${
                       isSaved
                         ? "bg-slate-400"
                         : isDisabled
@@ -340,7 +340,7 @@ export default function DiscoverTab() {
                           : "bg-emerald-600 active:bg-emerald-700"
                     }`}
                   >
-                    <Text className="text-white font-black text-xs">
+                    <Text className="text-white font-semibold text-xl">
                       {buttonText}
                     </Text>
                   </Pressable>
