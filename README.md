@@ -4,10 +4,21 @@ tasteMate is a premium, cross-platform mobile recipe discovery and management ap
 
 ---
 
+## 📱 Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/portal_screen.png" width="22%" alt="Portal Home" />
+  <img src="assets/screenshots/discover_screen.png" width="22%" alt="Discover Meals" />
+  <img src="assets/screenshots/saved_screen.png" width="22%" alt="Saved Cooklist" />
+  <img src="assets/screenshots/profile_screen.png" width="22%" alt="Profile Settings" />
+</p>
+
+---
+
 ## 🚀 Key Features
 
 *   **Discover Portal (`app/index.tsx`)**: An entry landing dashboard welcoming the user with their name and custom outlined top bar brand headers, linking to key features.
-*   **Discover Tab (`app/(tabs)/index.tsx`)**: Explore recipes dynamically using category filter buttons (Chicken, Pasta, Dessert, etc.) and search input queries. Features robust grid cards displaying images, categories, and auth-guarded save capabilities.
+*   **Discover Tab (`app/(tabs)/index.tsx`)**: Explore recipes dynamically using category filter pills (Chicken, Pasta, Dessert, etc.) and search input queries. Features robust grid cards displaying images, categories, and auth-guarded save capabilities.
 *   **Saved Recipes Tab (`app/(tabs)/saving.tsx`)**:
     *   **Self-Healing Image Fallback**: Automatically queries TheMealDB API lookup endpoints if database-stored image paths are missing or fail to load.
     *   **Single-Item Deletion**: Remove individual items from your list with validation prompts.
