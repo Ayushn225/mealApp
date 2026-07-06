@@ -1,3 +1,4 @@
+import React from "react";
 import { Stack } from "expo-router";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { ConvexReactClient } from "convex/react";
@@ -28,25 +29,33 @@ const tokenCache = {
   },
 };
 
-const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL || "";
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
 
-const convex = new ConvexReactClient(convexUrl);
+function ConvexClerkProvider({ children }: { children: React.ReactNode }) {
+  const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL || "";
+  const convex = new ConvexReactClient(convexUrl);
 
-export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <StatusBar style="dark" />
-        <View style={warmThemes.light} className="flex-1 bg-background">
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: "transparent" },
-            }}
-          />
-        </View>
+        {children}
       </ConvexProviderWithClerk>
     </ClerkProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ConvexClerkProvider>
+      <StatusBar style="dark" />
+      <View style={warmThemes.light} className="flex-1 bg-background">
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "transparent" },
+          }}
+        />
+      </View>
+    </ConvexClerkProvider>
   );
 }
