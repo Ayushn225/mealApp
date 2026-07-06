@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Text,
   View,
@@ -7,12 +7,16 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
 import { LogIn, ChevronLeft, Search, Heart, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useAppStore } from "../../store/useAppStore";
 import { warmThemes } from "../../constants/theme";
 import { MealListItem } from "../../types/meal";
 import { CATEGORIES, getMealByCategory, getMealByName } from "../services/mealApi";
@@ -36,11 +40,33 @@ export default function DiscoverTab() {
   const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
 
+  // Zustand Store Hooks
+  const { pendingAuthAction, setPendingAuthAction, clearPendingAuthAction } = useAppStore();
+
+  // Convex Auth Hooks
+  const { isLoading: isConvexAuthLoading, isAuthenticated } = useConvexAuth();
+  const saveMealMutation = useMutation(api.savedMeals.saveMeal);
+
+  // Fetch Saved Meals query to locate already-saved states
+  const savedMealsQuery = useQuery(
+    api.savedMeals.getSavedMeals,
+    user?.id ? { userId: user.id } : "skip"
+  );
+
+  // Memoized lookups for saved meal IDs
+  const savedMealsIds = useMemo(() => {
+    if (!savedMealsQuery) return new Set<string>();
+    return new Set(savedMealsQuery.map((m) => m.mealId));
+  }, [savedMealsQuery]);
+
   // Core State Hooks
   const [selectedCategory, setSelectedCategory] = useState("Chicken");
   const [searchQuery, setSearchQuery] = useState("");
   const [meals, setMeals] = useState<MealListItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Local Mutation Loading State
+  const [isMutationLoading, setIsMutationLoading] = useState(false);
 
   // Derived State
   const isSearching = searchQuery.trim().length > 0;
@@ -68,10 +94,17 @@ export default function DiscoverTab() {
     loadMeals();
   }, [selectedCategory, searchQuery]);
 
-  const goToSignIn = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/sign-in");
-  };
+  // Post-SignIn callback/hook logic:
+  // Upon successful authentication, check Zustand and clear pending actions
+  useEffect(() => {
+    if (isAuthenticated && pendingAuthAction === "save-meal") {
+      Alert.alert(
+        "Welcome Back!",
+        "You have signed in successfully. You can now save meals to your cooklist."
+      );
+      clearPendingAuthAction();
+    }
+  }, [isAuthenticated, pendingAuthAction]);
 
   const handleGoToProfile = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -92,23 +125,56 @@ export default function DiscoverTab() {
     setSelectedCategory(category);
   };
 
+  // Secure Save Meal Handler
   const handleSaveMeal = async (item: MealListItem) => {
-    if (!isAuthLoaded) return;
+    const isSaved = savedMealsIds.has(item.idMeal);
 
-    if (!isSignedIn) {
-      // Intercept and route to Sign In
+    // 1. Duplicate Guard
+    if (isSaved) return;
+
+    // 2. Authentication Handshake
+    if (!isAuthenticated) {
+      setPendingAuthAction("save-meal");
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      router.push("/sign-in");
-    } else {
-      // Authenticated save action
+      Alert.alert(
+        "Authentication Required",
+        "Please sign in to save recipes to your personal collection.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => router.push("/sign-in"),
+          },
+        ]
+      );
+      return;
+    }
+
+    // 3. Loading Guard
+    if (isConvexAuthLoading) return;
+
+    // 4. Mutation Execution
+    setIsMutationLoading(true);
+    try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      console.log("Saving meal:", item.strMeal);
+      await saveMealMutation({
+        userId: user?.id || "",
+        mealId: item.idMeal,
+        name: item.strMeal,
+        category: item.strCategory || selectedCategory,
+        area: item.strArea || "Unknown",
+        imageUrl: item.strMealThumb,
+      });
+    } catch (err) {
+      console.error("Failed to save meal:", err);
+      Alert.alert("Error", "Could not save the meal. Please try again.");
+    } finally {
+      setIsMutationLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={warmThemes.light} className="flex-1 bg-background">
-
       {/* Back Button Action Row */}
       <View className="flex-row justify-between items-center h-14 px-5 bg-background">
         <Pressable
@@ -215,43 +281,72 @@ export default function DiscoverTab() {
         ) : (
           /* Grid Card Layout Specifications */
           <View className="flex-row flex-wrap justify-between px-3">
-            {meals.map((item) => (
-              <View
-                key={item.idMeal}
-                className="w-[47%] aspect-[3/4] bg-card border border-border rounded-3xl overflow-hidden shadow-sm mb-4 relative"
-              >
-                {/* Upper 50% split window containing product image */}
-                <Image
-                  source={{ uri: item.strMealThumb }}
-                  className="w-full h-[50%] object-cover"
-                />
+            {meals.map((item) => {
+              const isSaved = savedMealsIds.has(item.idMeal);
 
-                {/* Lower section metadata details */}
-                <View className="p-3 justify-between flex-1 pb-12">
-                  <View>
-                    <Text
-                      className="text-main font-black text-xs leading-4"
-                      numberOfLines={2}
-                    >
-                      {item.strMeal}
-                    </Text>
-                    <Text className="text-muted text-[10px] font-bold mt-1">
-                      {item.strCategory || selectedCategory}
-                    </Text>
-                  </View>
-                </View>
+              // Determine Button text & disabled status according to precedence matrix rules
+              let buttonText = "Save Meal";
+              let isDisabled = false;
 
-                {/* Dynamic Save Button Container */}
-                <Pressable
-                  onPress={() => handleSaveMeal(item)}
-                  className="absolute bottom-0 left-0 right-0 bg-emerald-600 py-2.5 items-center justify-center active:bg-emerald-700"
+              if (isSaved) {
+                buttonText = "Saved";
+                isDisabled = true;
+              } else if (isMutationLoading) {
+                buttonText = "Saving...";
+                isDisabled = true;
+              } else if (isConvexAuthLoading) {
+                buttonText = "Connecting...";
+                isDisabled = true;
+              } else if (!isAuthenticated) {
+                buttonText = "Save Meal";
+                isDisabled = false;
+              }
+
+              return (
+                <View
+                  key={item.idMeal}
+                  className="w-[47%] aspect-[3/4] bg-card border border-border rounded-3xl overflow-hidden shadow-sm mb-4 relative"
                 >
-                  <Text className="text-white font-black text-xs">
-                    {!isAuthLoaded ? "Loading..." : "Save meal"}
-                  </Text>
-                </Pressable>
-              </View>
-            ))}
+                  {/* Upper 50% split window containing product image */}
+                  <Image
+                    source={{ uri: item.strMealThumb }}
+                    className="w-full h-[50%] object-cover"
+                  />
+
+                  {/* Lower section metadata details */}
+                  <View className="p-3 justify-between flex-1 pb-12">
+                    <View>
+                      <Text
+                        className="text-main font-black text-xs leading-4"
+                        numberOfLines={2}
+                      >
+                        {item.strMeal}
+                      </Text>
+                      <Text className="text-muted text-[10px] font-bold mt-1">
+                        {item.strCategory || selectedCategory}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Dynamic Save Button Container */}
+                  <Pressable
+                    onPress={() => handleSaveMeal(item)}
+                    disabled={isDisabled}
+                    className={`absolute bottom-0 left-0 right-0 py-2.5 items-center justify-center ${
+                      isSaved
+                        ? "bg-slate-400"
+                        : isDisabled
+                          ? "bg-emerald-600/60"
+                          : "bg-emerald-600 active:bg-emerald-700"
+                    }`}
+                  >
+                    <Text className="text-white font-black text-xs">
+                      {buttonText}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>

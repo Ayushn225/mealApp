@@ -81,6 +81,7 @@ export default function IndexPortal() {
             </Pressable>
           )}
         </View>
+
       </View>
 
       {/* Main Content Portal Navigation */}
