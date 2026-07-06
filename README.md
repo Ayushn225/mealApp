@@ -1,50 +1,55 @@
-# Welcome to your Expo app 👋
+# tasteMate 🍳
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+tasteMate is a premium, cross-platform mobile recipe discovery and management application built using **Expo (React Native)**, **Clerk**, **Convex**, and **Zustand**. It allows users to explore thousands of meals, filter them by categories, search by name, and manage their personal saved collections securely with an advanced multi-select batch deletion interface.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Key Features
 
-   ```bash
-   npm install
-   ```
+*   **Discover Portal (`app/index.tsx`)**: An entry landing dashboard welcoming the user with their name and custom outlined top bar brand headers, linking to key features.
+*   **Discover Tab (`app/(tabs)/index.tsx`)**: Explore recipes dynamically using category filter buttons (Chicken, Pasta, Dessert, etc.) and search input queries. Features robust grid cards displaying images, categories, and auth-guarded save capabilities.
+*   **Saved Recipes Tab (`app/(tabs)/saving.tsx`)**:
+    *   **Self-Healing Image Fallback**: Automatically queries TheMealDB API lookup endpoints if database-stored image paths are missing or fail to load.
+    *   **Single-Item Deletion**: Remove individual items from your list with validation prompts.
+    *   **Multi-Select Batch Deletion**: Long-press any card to activate batch mode. Select multiple items and remove them concurrently using a floating action footer menu.
+*   **Profile Tab (`app/(tabs)/profile.tsx`)**: View credentials (full name and email), check auth status, and perform clean sign-outs with integrated haptic feedbacks.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 🛠️ Technology Stack
 
-In the output, you'll find options to open the app in a
+*   **Framework**: Expo v54 (React Native) + Expo Router (File-based routing)
+*   **Styling**: NativeWind (Tailwind CSS for React Native) & Custom Theme variables
+*   **Authentication**: Clerk Expo (`@clerk/clerk-expo`)
+*   **Database & API Server**: Convex Realtime DB & Mutations/Queries (`convex`)
+*   **State Management**: Zustand (Global Auth State & deferred actions)
+*   **Haptics**: Expo Haptics (`expo-haptics`)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 📦 Installation & Setup
 
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Clone the repository and install dependencies
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Configure Environment Variables
+Create a `.env` file in the root directory:
+```ini
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+EXPO_PUBLIC_CONVEX_URL=https://your-deployment-url.convex.cloud
+```
 
-## Learn more
+### 3. Initialize Convex DB
+Run the Convex development server to synchronize the schema and deploy mutations/queries:
+```bash
+npx convex dev
+```
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### 4. Start the Application
+Launch the Expo development server:
+```bash
+npm run start -c
+```
+Use the Expo Go app on your phone (or simulators) to scan the QR code and interact with the application.
