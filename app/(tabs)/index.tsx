@@ -308,10 +308,13 @@ export default function DiscoverTab() {
                   className="w-[47%] aspect-[3/4] bg-card border border-border rounded-3xl overflow-hidden shadow-sm mb-4 relative"
                 >
                   {/* Upper 50% split window containing product image */}
-                  <Image
-                    source={{ uri: item.strMealThumb }}
-                    className="w-full h-[50%] object-cover"
-                  />
+                  <View className="w-full h-32 overflow-hidden">
+                    <Image
+                      source={{ uri: item.strMealThumb }}
+                      className="w-full h-full"
+                      resizeMode="cover"
+                    />
+                  </View>
 
                   {/* Lower section metadata details */}
                   <View className="p-3 justify-between flex-1 pb-12">

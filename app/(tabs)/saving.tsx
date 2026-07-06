@@ -14,7 +14,6 @@ import { useRouter } from "expo-router";
 import {
   ChevronLeft,
   User,
-  LogIn,
   Heart,
   Compass,
   Trash2,
@@ -24,6 +23,115 @@ import { useMutation, useQuery, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAppStore } from "../../store/useAppStore";
 import { warmThemes } from "../../constants/theme";
+
+// Self-Healing individual saved meal card to resolve broken/empty database image URLs automatically
+function SavedMealCard({
+  item,
+  isSelected,
+  isMultiSelectMode,
+  isDeleting,
+  onLongPress,
+  onPress,
+  onDelete,
+}: {
+  item: any;
+  isSelected: boolean;
+  isMultiSelectMode: boolean;
+  isDeleting: boolean;
+  onLongPress: () => void;
+  onPress: () => void;
+  onDelete: () => void;
+}) {
+  const [imgUri, setImgUri] = useState<string | undefined>(item.imageUrl);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
+
+  // Triggered if the Image component fails to load the stored Convex database image URL
+  const handleImageError = () => {
+    if (fallbackAttempted) return;
+    setFallbackAttempted(true);
+
+    // Query TheMealDB lookup endpoint by mealId to dynamically self-heal the image reference
+    fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${item.mealId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.meals && data.meals[0]?.strMealThumb) {
+          setImgUri(data.meals[0].strMealThumb);
+        }
+      })
+      .catch((err) => console.error("Image self-healing lookup fallback error:", err));
+  };
+
+  // Sync state if Convex database changes it
+  useEffect(() => {
+    setImgUri(item.imageUrl);
+  }, [item.imageUrl]);
+
+  const buttonText = isDeleting ? "Deleting..." : "Remove";
+
+  return (
+    <Pressable
+      onLongPress={onLongPress}
+      onPress={onPress}
+      className={`w-[48%] aspect-[3/4.2] bg-card border rounded-3xl overflow-hidden shadow-sm mb-4 relative ${
+        isSelected ? "border-primary border-2" : "border-border"
+      }`}
+    >
+      {/* Upper Half: Card Image with self-healing fallback wrapper */}
+      <View className="w-full h-32 overflow-hidden bg-slate-100 items-center justify-center">
+        {imgUri ? (
+          <Image
+            source={{ uri: imgUri }}
+            className="w-full h-full"
+            resizeMode="cover"
+            onError={handleImageError}
+          />
+        ) : (
+          <ActivityIndicator size="small" color="#E65F2B" />
+        )}
+      </View>
+
+      {/* Selection State Checkbox Overlay Indicator */}
+      {isMultiSelectMode && (
+        <View className="absolute top-2 right-2 w-6 h-6 rounded-full border-2 border-white items-center justify-center bg-card shadow-sm">
+          <View
+            className={`w-3.5 h-3.5 rounded-full ${
+              isSelected ? "bg-primary" : "bg-transparent"
+            }`}
+          />
+        </View>
+      )}
+
+      {/* Lower Half Metadata Details */}
+      <View className="p-3 justify-between flex-1 pb-14">
+        <View>
+          <Text
+            className="text-main font-black text-xs leading-4"
+            numberOfLines={2}
+          >
+            {item.name}
+          </Text>
+          <Text className="text-muted text-[10px] font-bold mt-1">
+            {item.category || "Recipe"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Single Card Deletion Button */}
+      <Pressable
+        onPress={onDelete}
+        disabled={isMultiSelectMode || isDeleting}
+        className={`absolute bottom-2 left-2 right-2 rounded-2xl py-2 flex-row items-center justify-center gap-1 bg-rose-600 active:bg-rose-700 ${
+          (isMultiSelectMode || isDeleting) ? "opacity-55" : ""
+        }`}
+      >
+        <Trash2 size={12} color="#ffffff" />
+        <Text className="text-white font-black text-[10px]">
+          {buttonText}
+        </Text>
+      </Pressable>
+    </Pressable>
+  );
+}
 
 export default function SavingTab() {
   const router = useRouter();
@@ -81,7 +189,7 @@ export default function SavingTab() {
     router.push("/(tabs)");
   };
 
-  // Card Press Handlers
+  // Card Selection Handlers
   const handleCardLongPress = async (mealId: string) => {
     if (!isMultiSelectMode) {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -173,7 +281,7 @@ export default function SavingTab() {
   };
 
   return (
-    <SafeAreaView style={warmThemes.light} className="flex-1 bg-background">
+    <View style={warmThemes.light} className="flex-1 bg-background pt-safe">
       {/* Sticky Header Layout */}
       <View className="flex-row justify-between items-center h-14 px-5 bg-background border-b border-border">
         <Pressable
@@ -245,63 +353,18 @@ export default function SavingTab() {
               {savedMeals.map((item) => {
                 const isSelected = selectedMealIds.has(item._id);
                 const isDeleting = deletingId === item._id;
-                const buttonText = isDeleting ? "Deleting..." : "Remove";
 
                 return (
-                  <Pressable
+                  <SavedMealCard
                     key={item._id}
+                    item={item}
+                    isSelected={isSelected}
+                    isMultiSelectMode={isMultiSelectMode}
+                    isDeleting={isDeleting}
                     onLongPress={() => handleCardLongPress(item._id)}
                     onPress={() => handleCardPress(item)}
-                    className={`w-[48%] aspect-[3/4.2] bg-card border rounded-3xl overflow-hidden shadow-sm mb-4 relative ${
-                      isSelected ? "border-primary border-2" : "border-border"
-                    }`}
-                  >
-                    {/* Upper Half: Card Image */}
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      className="w-full h-[48%] object-cover"
-                    />
-
-                    {/* Selection State Checkbox Overlay Indicator */}
-                    {isMultiSelectMode && (
-                      <View className="absolute top-2 right-2 w-6 h-6 rounded-full border-2 border-white items-center justify-center bg-card shadow-sm">
-                        <View
-                          className={`w-3.5 h-3.5 rounded-full ${
-                            isSelected ? "bg-primary" : "bg-transparent"
-                          }`}
-                        />
-                      </View>
-                    )}
-
-                    {/* Lower Half Metadata Details */}
-                    <View className="p-3 justify-between flex-1 pb-14">
-                      <View>
-                        <Text
-                          className="text-main font-black text-xs leading-4"
-                          numberOfLines={2}
-                        >
-                          {item.name}
-                        </Text>
-                        <Text className="text-muted text-[10px] font-bold mt-1">
-                          {item.category || "Recipe"}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Single Card Deletion Button */}
-                    <Pressable
-                      onPress={() => handleDelete(item._id)}
-                      disabled={isMultiSelectMode || isDeleting}
-                      className={`absolute bottom-2 left-2 right-2 rounded-2xl py-2 flex-row items-center justify-center gap-1 bg-rose-600 active:bg-rose-700 ${
-                        (isMultiSelectMode || isDeleting) ? "opacity-55" : ""
-                      }`}
-                    >
-                      <Trash2 size={12} color="#ffffff" />
-                      <Text className="text-white font-black text-[10px]">
-                        {buttonText}
-                      </Text>
-                    </Pressable>
-                  </Pressable>
+                    onDelete={() => handleDelete(item._id)}
+                  />
                 );
               })}
             </View>
@@ -332,6 +395,6 @@ export default function SavingTab() {
           )}
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
