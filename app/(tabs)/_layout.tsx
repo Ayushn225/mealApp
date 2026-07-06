@@ -31,7 +31,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="saved"
+        name="saving"
         options={{
           title: "Saved",
           tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,

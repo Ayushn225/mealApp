@@ -1,10 +1,21 @@
-import React from "react";
-import { Text, View, Pressable, Image } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  Text,
+  View,
+  Pressable,
+  Image,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { LogIn, User } from "lucide-react-native";
+import { LogIn, ChevronLeft, Search, Heart } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { warmThemes } from "../../constants/theme";
+import { MealListItem } from "../../types/meal";
+import { CATEGORIES, getMealByCategory, getMealByName } from "../services/mealApi";
 
 // Safe custom Chef Hat representation using standard View elements to guarantee zero-crash imports
 function ChefHatIcon({ size = 20, color = "#E65F2B" }: { size?: number; color?: string }) {
@@ -22,8 +33,40 @@ function ChefHatIcon({ size = 20, color = "#E65F2B" }: { size?: number; color?: 
 
 export default function DiscoverTab() {
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
+
+  // Core State Hooks
+  const [selectedCategory, setSelectedCategory] = useState("Chicken");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [meals, setMeals] = useState<MealListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Derived State
+  const isSearching = searchQuery.trim().length > 0;
+
+  // Fetch Effect Callback (loadMeals)
+  const loadMeals = async () => {
+    setLoading(true);
+    try {
+      if (isSearching) {
+        const response = await getMealByName(searchQuery);
+        setMeals(response.meals || []);
+      } else {
+        const response = await getMealByCategory(selectedCategory);
+        setMeals(response.meals || []);
+      }
+    } catch (err) {
+      console.error("Error loading meals:", err);
+      setMeals([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMeals();
+  }, [selectedCategory, searchQuery]);
 
   const goToSignIn = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -35,82 +78,160 @@ export default function DiscoverTab() {
     router.push("/profile");
   };
 
+  const handleBack = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
+  };
+
+  const selectCategory = async (category: string) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCategory(category);
+  };
+
+  const handleSaveMeal = async (item: MealListItem) => {
+    if (!isAuthLoaded) return;
+
+    if (!isSignedIn) {
+      // Intercept and route to Sign In
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      router.push("/sign-in");
+    } else {
+      // Authenticated save action
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      console.log("Saving meal:", item.strMeal);
+    }
+  };
+
   return (
-    <View style={warmThemes.light} className="flex-1 bg-background pt-safe">
-      <View className="flex-1 px-5 pt-1">
-        {/* Top Bar Layout */}
-        <View className="flex-row justify-between items-center h-20">
-          {/* Top-Left: Logo & Name with rounded border outline */}
-          <View className="flex-row items-center gap-2 border border-border rounded-full py-2 px-4 bg-card">
-            <ChefHatIcon size={24} color="#E65F2B" />
-            <Text className="text-lg font-black text-main tracking-tight">
-              tasteMate
+    <SafeAreaView style={warmThemes.light} className="flex-1 bg-background">
+
+      {/* Back Button Action Row */}
+      <View className="flex-row justify-start items-center h-12 px-5 bg-background">
+        <Pressable
+          onPress={handleBack}
+          className="flex-row items-center border border-slate-800 rounded-full py-1 px-3 shadow-sm active:opacity-60"
+        >
+          <ChevronLeft size={16} color="#2E2522" className="mr-0.5" />
+          <Text className="text-main font-bold text-xs">Back</Text>
+        </Pressable>
+      </View>
+
+      {/* Main Layout Scrollable Canvas */}
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
+        <Text className="text-2xl font-black text-main mt-4 px-5">
+          Discoverable Meals
+        </Text>
+
+        {/* Categories Horizontal Slider Container */}
+        <View className="my-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20 }}
+            className="flex-row gap-3"
+          >
+            {CATEGORIES.map((category) => {
+              const isActive = category === selectedCategory;
+              return (
+                <Pressable
+                  key={category}
+                  onPress={() => selectCategory(category)}
+                  className={`border rounded-full py-2 px-4 ${
+                    isActive
+                      ? "bg-primary border-primary"
+                      : "bg-card border-border"
+                  }`}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      isActive ? "text-white" : "text-muted"
+                    }`}
+                  >
+                    {category}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Text Entry Search Area */}
+        <View className="px-5 mb-6">
+          <View className="flex-row items-center bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
+            <Search size={18} color="#7A6E67" className="mr-2" />
+            <TextInput
+              placeholder="Search meals by Name"
+              placeholderTextColor="#A3938B"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCorrect={false}
+              returnKeyType="search"
+              className="flex-1 text-sm text-main"
+            />
+          </View>
+        </View>
+
+        {/* Conditional State Renderer Matrix */}
+        {loading ? (
+          <View className="py-12 justify-center items-center gap-3">
+            <ActivityIndicator size="large" color="#E65F2B" />
+            <Text className="text-muted text-sm font-semibold">
+              {isSearching ? "Searching Meals..." : "Loading meals..."}
             </Text>
           </View>
+        ) : meals.length === 0 ? (
+          <View className="py-12 justify-center items-center">
+            <Text className="text-muted text-sm font-semibold">
+              No meals found
+            </Text>
+          </View>
+        ) : (
+          /* Grid Card Layout Specifications */
+          <View className="flex-row flex-wrap justify-between px-3">
+            {meals.map((item) => (
+              <View
+                key={item.idMeal}
+                className="w-[47%] aspect-[3/4] bg-card border border-border rounded-3xl overflow-hidden shadow-sm mb-4 relative"
+              >
+                {/* Upper 50% split window containing product image */}
+                <Image
+                  source={{ uri: item.strMealThumb }}
+                  className="w-full h-[50%] object-cover"
+                />
 
-          {/* Top-Right: Auth Status Area / Avatar */}
-          <View className="flex-row items-center">
-            {!isLoaded ? null : !isSignedIn ? (
-              <View className="border border-border rounded-full py-2 px-4 bg-card">
+                {/* Lower section metadata details */}
+                <View className="p-3 justify-between flex-1 pb-12">
+                  <View>
+                    <Text
+                      className="text-main font-black text-xs leading-4"
+                      numberOfLines={2}
+                    >
+                      {item.strMeal}
+                    </Text>
+                    <Text className="text-muted text-[10px] font-bold mt-1">
+                      {item.strCategory || selectedCategory}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Dynamic Save Button Container */}
                 <Pressable
-                  onPress={goToSignIn}
-                  className="flex-row items-center gap-1.5 active:opacity-60"
+                  onPress={() => handleSaveMeal(item)}
+                  className="absolute bottom-0 left-0 right-0 bg-emerald-600 py-2.5 items-center justify-center active:bg-emerald-700"
                 >
-                  <LogIn size={18} color="#E65F2B" />
-                  <Text className="text-primary text-sm font-bold">Sign In</Text>
+                  <Text className="text-white font-black text-xs">
+                    {!isAuthLoaded ? "Loading..." : "Save meal"}
+                  </Text>
                 </Pressable>
               </View>
-            ) : (
-              <Pressable
-                onPress={handleGoToProfile}
-                className="w-11 h-11 rounded-full border border-border overflow-hidden items-center justify-center bg-card active:opacity-80"
-              >
-                {user?.imageUrl ? (
-                  <Image
-                    source={{ uri: user.imageUrl }}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <Text className="text-base font-black text-main uppercase">
-                    {(user?.firstName || user?.emailAddresses[0]?.emailAddress || "?")[0]}
-                  </Text>
-                )}
-              </Pressable>
-            )}
+            ))}
           </View>
-        </View>
-
-        {/* Content Area */}
-        <View className="flex-1 justify-center items-center pb-20">
-          <Text className="text-2xl font-black text-main text-center mb-2">
-            Welcome to tasteMate
-          </Text>
-          <Text className="text-muted text-center text-sm font-medium mb-8">
-            Your personalized smart recipe helper
-          </Text>
-
-          {isSignedIn && user && (
-            <View className="bg-card border border-border py-6 px-6 rounded-3xl items-center gap-4 shadow-sm w-full max-w-xs">
-              {user.imageUrl ? (
-                <Image
-                  source={{ uri: user.imageUrl }}
-                  className="w-16 h-16 rounded-full border-2 border-primary/20"
-                />
-              ) : (
-                <User size={32} color="#E65F2B" />
-              )}
-              <View className="items-center">
-                <Text className="text-main text-base font-black text-center">
-                  {user.fullName || user.firstName || "Welcome back!"}
-                </Text>
-                <Text className="text-muted text-xs font-semibold text-center mt-0.5">
-                  {user.primaryEmailAddress?.emailAddress}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-      </View>
-    </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
