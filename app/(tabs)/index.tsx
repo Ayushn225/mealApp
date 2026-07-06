@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useRouter } from "expo-router";
-import { LogIn, ChevronLeft, Search, Heart } from "lucide-react-native";
+import { LogIn, ChevronLeft, Search, Heart, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { warmThemes } from "../../constants/theme";
 import { MealListItem } from "../../types/meal";
@@ -110,14 +110,37 @@ export default function DiscoverTab() {
     <SafeAreaView style={warmThemes.light} className="flex-1 bg-background">
 
       {/* Back Button Action Row */}
-      <View className="flex-row justify-start items-center h-12 px-5 bg-background">
+      <View className="flex-row justify-between items-center h-14 px-5 bg-background">
         <Pressable
           onPress={handleBack}
-          className="flex-row items-center border border-slate-800 rounded-full py-1 px-3 shadow-sm active:opacity-60"
+          className="flex-row items-center border border-slate-800 rounded-full py-1.5 px-3 shadow-sm active:opacity-60"
         >
           <ChevronLeft size={16} color="#2E2522" className="mr-0.5" />
           <Text className="text-main font-bold text-xs">Back</Text>
         </Pressable>
+
+        {/* Top-Right: Account Avatar / User Icon */}
+        <View className="flex-row items-center">
+          <Pressable
+            onPress={handleGoToProfile}
+            className="w-8 h-8 rounded-full border border-border overflow-hidden items-center justify-center bg-card active:opacity-80"
+          >
+            {isAuthLoaded && isSignedIn ? (
+              user?.imageUrl ? (
+                <Image
+                  source={{ uri: user.imageUrl }}
+                  className="w-full h-full"
+                />
+              ) : (
+                <Text className="text-xs font-black text-main uppercase">
+                  {(user?.firstName || user?.emailAddresses[0]?.emailAddress || "?")[0]}
+                </Text>
+              )
+            ) : (
+              <User size={16} color="#2E2522" />
+            )}
+          </Pressable>
+        </View>
       </View>
 
       {/* Main Layout Scrollable Canvas */}

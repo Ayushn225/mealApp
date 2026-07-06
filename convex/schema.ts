@@ -17,4 +17,17 @@ export default defineSchema({
     imageUrl: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  savedMeals: defineTable({
+    userId: v.string(),
+    mealId: v.string(),
+    name: v.string(),
+    category: v.string(),
+    area: v.string(),
+    imageUrl: v.string(),
+    sourceUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_userMeal", ["userId", "mealId"]),
 });
